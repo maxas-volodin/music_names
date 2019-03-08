@@ -30,25 +30,9 @@ class ComposerLegacy:
             for next_file in files:
                 if music_track.MusicTrack.is_music_track (os.path.join (self.dir_name, next_file)):
                     new_track = music_track.MusicTrack ()
+                    # new_track.parse_file_name (next_file, dir_names)
                     new_track.parse_file_name (next_file)
                     self.music_tracks.append (new_track)
-
-            # If none of the tracks has recognized the genre try recognizing it from the name of directories
-            # (otherwise some of the tracks may simply be of unknown genre)
-
-            genre_known = False
-
-            for t in self.music_tracks:
-                if t.main_genre != "":
-                    genre_known = True
-                    break
-
-            if not genre_known:
-                genre = music_track.MusicTrack.recognize_genre (dir_names)
-                if genre != '':
-                    for t in self.music_tracks:
-                        t.main_genre = genre
-                        t.full_genre = genre
 
     def print_legacy (self):
         i = 1
@@ -63,12 +47,12 @@ class ComposerLegacy:
             output_str += t.full_genre
 
             if t.num_in_genre != "": output_str += " No." + t.num_in_genre
-            if t.musical_key != "": output_str += t.musical_key
+            if t.musical_key != "": output_str += '(' + t.musical_key +')'
 
             if t.opus_name != "": output_str += ", \'" + t.opus_name + "\'"
 
             if t.opus_number != "": output_str += ", Opus " + t.opus_number
             if t.opus_subnum != "": output_str += ", nno." + t.opus_subnum
 
-            print (output_str, t.part_number, t.part_name)
+            print (output_str, 'num', t.part_number, 'name', t.part_name)
             i += 1

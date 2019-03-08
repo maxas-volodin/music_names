@@ -7,7 +7,7 @@ tmp_target_dir = ""
 tmp_all_legacies = []
 
 if len (sys.argv) == 1:
-    tmp_target_dir = 'c:/maxas/sound/symphony/Chopin'
+    tmp_target_dir = 'c:/maxas/sound/symphony/Villa-Lobos'
 elif len (sys.argv) == 2:
     tmp_target_dir = sys.argv [1]
 else:

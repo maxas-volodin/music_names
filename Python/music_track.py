@@ -6,19 +6,21 @@ import re
 class MusicTrack:
 
     __known_genres = {
+        'sinfonietta': 'Sinfonietta',   # Two works of Villa-Lobos
         'symphony': 'Symphony',
-        'sinfonie': 'Symphony',     # German
-        'symphonie': 'Symphony',    # French
+        'sinfonie': 'Symphony',         # German
+        'symphonie': 'Symphony',        # French
         'симфония': 'Symphony',
         'concerto': 'Concerto',
-        'koncert': 'Concerto',      # Polish
+        'koncert': 'Concerto',          # Polish
         'концерт': 'Concerto',
         'sonata': 'Sonata',
         'sonate': 'Sonata',
         'соната': 'Sonata',
         'suite': 'Suite',
         'сюита': 'Suite',
-        'fantasy': 'Fantasy',
+        'fantasy': 'Fantasia',
+        'fantasia': 'Fantasia',
         'rhapsody': 'Rhapsody'
     }
 
@@ -123,7 +125,7 @@ class MusicTrack:
                 tmp_str = match.group('name')
 
                 if tmp_str is not None:
-                    new_match = re.search ('([\w ]+)', tmp_str)
+                    new_match = re.search (r'([\w ]+)', tmp_str)
                     self.opus_name = new_match.group (1)
 
                 post_opus_chars = ""
@@ -141,7 +143,7 @@ class MusicTrack:
 
     def __parse_d_d_partname (self, p_search_string):
 
-        match = re.search("^(?P<number>\d+)[_-](?P<part_num>\d+)(?P<part_name>[ _\-\w]*)$", p_search_string)
+        match = re.search(r"^(?P<number>\d+)[_-](?P<part_num>\d+)(?P<part_name>[ _.,\w-]*)$", p_search_string)
 
         if match:
             self.num_in_genre = match.group('number')
@@ -154,6 +156,7 @@ class MusicTrack:
 
         genre_recognized = True
         part_name_start_pos = 0
+        mus_key_last_pos = 0
 
         pattern = "(?i)(?P<genre>(" + self.__genre_search_pattern + "))"
         match = re.search (pattern, track_name)
@@ -165,7 +168,7 @@ class MusicTrack:
             # if genre is recognized then try recognizing the a bigger pattern, e.g. "Piano Sonata No. 15 in D"
             # note that qualifier "Piano", number in musical key ("in D") are all optional
 
-            new_pattern = '(?i)(?P<type>.*?XXX.*?)((\s+(nr|no|\#)[\s\.]*(?P<num>\d+))*(?P<key>[\s\w\-]+)*)*'
+            new_pattern = r'(?i)(?P<type>.*?XXX.*?)((\s+(nr|no|#)[\s.]*(?P<num>\d+))*(?P<key>[\D]+)*)*'
             new_pattern = new_pattern.replace ("XXX", org_genre_name)
 
             match = re.search (new_pattern, track_name)
@@ -182,17 +185,22 @@ class MusicTrack:
                 tmp_str = match.group ('num')
                 if tmp_str is not None:
                     self.num_in_genre = tmp_str
-                    part_name_start_pos = match.end ('num') + 1
+                    part_name_start_pos = match.end ('num')
 
                 tmp_str = match.group ('key')
                 if tmp_str is not None:
                     self.musical_key = tmp_str
-                    part_name_start_pos = match.end('key') + 1
+                    mus_key_last_pos = match.end ('key')
+
+                    # The next line is commented out because part recognition should start right after the number
+                    # 'Key' recognition will eat into the part number if there is no key specified
+                    # part_name_start_pos = match.end('key')
+
 
             # try recognizing opus name coming before opus number,
             # such as in "Piano Concerto No. 5 in E flat major ('Emperor'), Op. 73"
 
-            match = re.search ("(?P<name>((\'[\w ]+\')|(\([\w ]+\))))", track_name)
+            match = re.search (r"(?P<name>((\'[\w ]+\')|(\([\w ]+\))))", track_name)
             if match:
                 tmp_str = match.group ('name')
                 self.opus_name = tmp_str [1:-1]
@@ -202,8 +210,14 @@ class MusicTrack:
 
         part_name_index = None
 
-        if not part_name_known and part_name_start_pos < len (track_name):
-            part_name_index = self.__recognize_part_name (track_name [part_name_start_pos:])
+        if genre_recognized is True:
+            if not part_name_known and part_name_start_pos < len (track_name):
+                part_name_index = self.__recognize_part_name (track_name [part_name_start_pos:])
+                if part_name_index is not None: part_name_index += part_name_start_pos
+
+            if part_name_index is not None and mus_key_last_pos > part_name_index:
+                len_adjustment = mus_key_last_pos - part_name_index
+                self.musical_key = self.musical_key [0:-len_adjustment]
 
         # if genre has not been recognized (which means that genre is equal to full track name) and part name
         # has been recognized then it is likely that the part name is a subset of the genre string and needs
@@ -214,12 +228,12 @@ class MusicTrack:
             if match: self.full_genre = self.full_genre [:match.start ()]
 
     def __recognize_part_name (self, search_string):
-        match = re.search("^.*?[\s.,\-]+(?P<part_num>[IVX]*|\d*)[\s.,-]+(?P<part_name>[\D]+)$", search_string)
+        match = re.search(r"[\s.,-]*(?P<part_num>[IVX]+|\d+)*[\s.,-]+(?P<part_name>[\D]+)$", search_string)
 
         if match:
             self.part_number = match.group('part_num')
             self.part_name = match.group('part_name')
 
-            return match.start ('part_num')
-        else:
-            return None
+            return match.start ()
+
+        return None
