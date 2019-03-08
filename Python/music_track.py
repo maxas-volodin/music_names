@@ -154,7 +154,7 @@ class MusicTrack:
 
     def __recognize_genre (self, track_name, part_name_known):
 
-        genre_recognized = True
+        genre_recognized = False
         part_name_start_pos = 0
         mus_key_last_pos = 0
 
@@ -173,6 +173,7 @@ class MusicTrack:
 
             match = re.search (new_pattern, track_name)
             if match:
+                genre_recognized = True
                 tmp_str = match.group ('type')
                 if tmp_str is None:
                     tmp_str = ""
@@ -194,18 +195,17 @@ class MusicTrack:
 
                     # The next line is commented out because part recognition should start right after the number
                     # 'Key' recognition will eat into the part number if there is no key specified
+
                     # part_name_start_pos = match.end('key')
 
+                    # try recognizing opus name coming before opus number,
+                    # such as in "Piano Concerto No. 5 in E flat major ('Emperor'), Op. 73"
 
-            # try recognizing opus name coming before opus number,
-            # such as in "Piano Concerto No. 5 in E flat major ('Emperor'), Op. 73"
-
-            match = re.search (r"(?P<name>((\'[\w ]+\')|(\([\w ]+\))))", track_name)
-            if match:
-                tmp_str = match.group ('name')
-                self.opus_name = tmp_str [1:-1]
+                    match = re.search (r"(?P<name>((\'[\w ]+\')|(\([\w ]+\))))", tmp_str)
+                    if match:
+                        tmp_str = match.group ('name')
+                        self.opus_name = tmp_str [1:-1]
         else:
-            genre_recognized = False
             self.full_genre = track_name
 
         part_name_index = None
@@ -215,9 +215,15 @@ class MusicTrack:
                 part_name_index = self.__recognize_part_name (track_name [part_name_start_pos:])
                 if part_name_index is not None: part_name_index += part_name_start_pos
 
+            # check if the recognized musical key is actually a part of the track name
+            # check if the recognized opus name is also part of the track name
+
             if part_name_index is not None and mus_key_last_pos > part_name_index:
                 len_adjustment = mus_key_last_pos - part_name_index
                 self.musical_key = self.musical_key [0:-len_adjustment]
+
+                if self.opus_name != '' and self.opus_name in self.track_name:
+                    self.opus_name = ''
 
         # if genre has not been recognized (which means that genre is equal to full track name) and part name
         # has been recognized then it is likely that the part name is a subset of the genre string and needs
