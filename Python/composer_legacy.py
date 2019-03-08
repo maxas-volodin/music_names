@@ -54,5 +54,5 @@ class ComposerLegacy:
             if t.opus_number != "": output_str += ", Opus " + t.opus_number
             if t.opus_subnum != "": output_str += ", nno." + t.opus_subnum
 
-            print (output_str, 'num', t.part_number, 'name', t.part_name)
+            print (output_str, 'p-num', t.part_number, 'part', t.part_name)
             i += 1

@@ -156,7 +156,6 @@ class MusicTrack:
 
         genre_recognized = False
         part_name_start_pos = 0
-        mus_key_last_pos = 0
 
         pattern = "(?i)(?P<genre>(" + self.__genre_search_pattern + "))"
         match = re.search (pattern, track_name)
@@ -165,15 +164,14 @@ class MusicTrack:
             org_genre_name = match.group ('genre')
             self.main_genre = self.__known_genres [org_genre_name.lower()]
 
-            # if genre is recognized then try recognizing the a bigger pattern, e.g. "Piano Sonata No. 15 in D"
-            # note that qualifier "Piano", number in musical key ("in D") are all optional
+            # if genre is recognized then try recognizing the a bigger pattern, e.g. "Piano Sonata No. 15"
+            # note that qualifier "Piano", and number "No. 15") are optional
 
-            new_pattern = r'(?i)(?P<type>.*?XXX.*?)((\s+(nr|no|#)[\s.]*(?P<num>\d+))*(?P<key>[\D]+)*)*'
+            new_pattern = r'(?i)(?P<type>.*?XXX.*?)((\s+(nr|no|#)[\s.]*(?P<num>\d+))*)*'
             new_pattern = new_pattern.replace ("XXX", org_genre_name)
 
             match = re.search (new_pattern, track_name)
             if match:
-                genre_recognized = True
                 tmp_str = match.group ('type')
                 if tmp_str is None:
                     tmp_str = ""
@@ -188,53 +186,39 @@ class MusicTrack:
                     self.num_in_genre = tmp_str
                     part_name_start_pos = match.end ('num')
 
-                tmp_str = match.group ('key')
-                if tmp_str is not None:
-                    self.musical_key = tmp_str
-                    mus_key_last_pos = match.end ('key')
-
-                    # The next line is commented out because part recognition should start right after the number
-                    # 'Key' recognition will eat into the part number if there is no key specified
-
-                    # part_name_start_pos = match.end('key')
-
-                    # try recognizing opus name coming before opus number,
-                    # such as in "Piano Concerto No. 5 in E flat major ('Emperor'), Op. 73"
-
-                    match = re.search (r"(?P<name>((\'[\w ]+\')|(\([\w ]+\))))", tmp_str)
-                    if match:
-                        tmp_str = match.group ('name')
-                        self.opus_name = tmp_str [1:-1]
+                genre_recognized = True
         else:
             self.full_genre = track_name
 
         part_name_index = None
 
-        if genre_recognized is True:
-            if not part_name_known and part_name_start_pos < len (track_name):
-                part_name_index = self.__recognize_part_name (track_name [part_name_start_pos:])
-                if part_name_index is not None: part_name_index += part_name_start_pos
-
-            # check if the recognized musical key is actually a part of the track name
-            # check if the recognized opus name is also part of the track name
-
-            if part_name_index is not None and mus_key_last_pos > part_name_index:
-                len_adjustment = mus_key_last_pos - part_name_index
-                self.musical_key = self.musical_key [0:-len_adjustment]
-
-                if self.opus_name != '' and self.opus_name in self.track_name:
-                    self.opus_name = ''
+        if not part_name_known and part_name_start_pos < len (track_name):
+            part_name_index = self.__recognize_part_name (track_name [part_name_start_pos:])
+            if part_name_index is not None: part_name_index += part_name_start_pos
 
         # if genre has not been recognized (which means that genre is equal to full track name) and part name
         # has been recognized then it is likely that the part name is a subset of the genre string and needs
-        # to be trimmed from it
+        # to be trimmed from it - unless the two strings are equal
 
         if genre_recognized is False and part_name_index is not None:
-            match = re.search (self.part_name + "$", self.full_genre)
-            if match: self.full_genre = self.full_genre [:match.start ()]
+            if self.full_genre != self.part_name:
+                match = re.search (self.part_name + "$", self.full_genre)
+                if match:
+                    self.full_genre = self.full_genre [:match.start ()]
+            else:
+                self.part_name = ""
 
     def __recognize_part_name (self, search_string):
-        match = re.search(r"[\s.,-]*(?P<part_num>[IVX]+|\d+)*[\s.,-]+(?P<part_name>[\D]+)$", search_string)
+        # match = re.search(r"[\s.,-]*(?P<part_num>[IVX]+|\d+)*[\s.,-]+(?P<part_name>[\D]+)$", search_string)
+
+        # First, try recognizing a pattern with part number (can be in arabic or Roman numerals)
+        # If this is not recognized then just pick up all non-white characters
+        # (keep number-recognition group in place to unify further processing)
+
+        match = re.search(r"^.*?((?P<part_num>[IVX]+|\d+)[\s.,-])+(?P<part_name>[\D]+)$", search_string)
+
+        if not match:
+            match = re.search(r"[\W]*((?P<part_num>[IVX]+|\d+)[\s.,-])*(?P<part_name>[\D]+)$", search_string)
 
         if match:
             self.part_number = match.group('part_num')
